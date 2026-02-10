@@ -154,24 +154,29 @@ export const updateRoom = async (req, res) => {
     let i = 1;
 
     for (const key of [
-      'numero',
-      'type',
-      'capacite',
-      'prix',
-      'description',
-      'equipements',
-      'statut'
+      'numero', 'type', 'capacite', 'prix', 'description', 'equipements', 'statut'
     ]) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = $${i++}`);
+        
+        //  FIX : Gérer equipements correctement
         if (key === 'equipements') {
-          const equipementsArray = Array.isArray(req.body[key]) ? req.body[key] : 
-                                  typeof req.body[key] === 'string' ? JSON.parse(req.body[key]) : [];
-          values.push(equipementsArray);
+          let equipementsArray = [];
+          if (req.body[key]) {
+            if (Array.isArray(req.body[key])) {
+              equipementsArray = req.body[key];
+            } else if (typeof req.body[key] === 'string') {
+              try {
+                equipementsArray = JSON.parse(req.body[key]);
+              } catch {
+                equipementsArray = [];
+              }
+            }
+          }
+          values.push(equipementsArray);  
         } else {
           values.push(req.body[key]);
         }
-        values.push(req.body[key]);
       }
     }
 
@@ -200,9 +205,10 @@ export const updateRoom = async (req, res) => {
     if (error.code === '23505') {
       return res.status(409).json({ error: 'Room number already exists' });
     }
-    res.status(500).json({ error: 'Failed to update room' });
+    res.status(500).json({ error: 'Failed to update room', details: error.message });
   }
 };
+
 
 /* =========================
    DELETE ROOM (ADMIN)
