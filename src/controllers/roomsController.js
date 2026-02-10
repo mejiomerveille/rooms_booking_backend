@@ -102,19 +102,31 @@ export const createRoom = async (req, res) => {
   try {
     const { numero, type, capacite, prix, description, equipements, statut } = req.body;
 
+    //  FIX : Array PostgreSQL compatible
+    let equipementsArray = [];
+    if (equipements) {
+      if (Array.isArray(equipements)) {
+        equipementsArray = equipements;
+      } else if (typeof equipements === 'string') {
+        try {
+          equipementsArray = JSON.parse(equipements);
+        } catch {
+          equipementsArray = [];
+        }
+      }
+    }
+
     const { rows } = await pool.query(
-      `INSERT INTO rooms
-        (id, numero, type, capacite, prix, description, equipements, statut)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       RETURNING *`,
+      `INSERT INTO rooms (id, numero, type, capacite, prix, description, equipements, statut)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [
         uuidv4(),
         numero,
         type,
         capacite,
         prix,
-        description,
-        equipements || [],
+        description || null,
+        equipementsArray,  //  PostgreSQL ARRAY
         statut || 'available'
       ]
     );
@@ -128,6 +140,8 @@ export const createRoom = async (req, res) => {
     res.status(500).json({ error: 'Failed to create room' });
   }
 };
+
+
 
 /* =========================
    UPDATE ROOM (ADMIN)
@@ -150,6 +164,13 @@ export const updateRoom = async (req, res) => {
     ]) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = $${i++}`);
+        if (key === 'equipements') {
+          const equipementsArray = Array.isArray(req.body[key]) ? req.body[key] : 
+                                  typeof req.body[key] === 'string' ? JSON.parse(req.body[key]) : [];
+          values.push(equipementsArray);
+        } else {
+          values.push(req.body[key]);
+        }
         values.push(req.body[key]);
       }
     }
